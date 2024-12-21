@@ -1,6 +1,8 @@
 import os
 import sys
 import random
+import warnings
+warnings.filterwarnings("ignore")
 
 sys.path.append("../../../")
 
