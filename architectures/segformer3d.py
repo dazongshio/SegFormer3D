@@ -1,9 +1,9 @@
 import torch
 import math
-import copy
+import time
+import numpy as np
 from torch import nn
-from einops import rearrange
-from functools import partial
+
 
 def build_segformer3d_model(config=None):
     model = SegFormer3D(
@@ -16,9 +16,7 @@ def build_segformer3d_model(config=None):
         mlp_ratios=config["model_parameters"]["mlp_ratios"],
         num_heads=config["model_parameters"]["num_heads"],
         depths=config["model_parameters"]["depths"],
-        decoder_head_embedding_dim=config["model_parameters"][
-            "decoder_head_embedding_dim"
-        ],
+        decoder_head_embedding_dim=config["model_parameters"]["decoder_head_embedding_dim"],
         num_classes=config["model_parameters"]["num_classes"],
         decoder_dropout=config["model_parameters"]["decoder_dropout"],
     )
@@ -27,19 +25,19 @@ def build_segformer3d_model(config=None):
 
 class SegFormer3D(nn.Module):
     def __init__(
-        self,
-        in_channels: int = 4,
-        sr_ratios: list = [4, 2, 1, 1],
-        embed_dims: list = [32, 64, 160, 256],
-        patch_kernel_size: list = [7, 3, 3, 3],
-        patch_stride: list = [4, 2, 2, 2],
-        patch_padding: list = [3, 1, 1, 1],
-        mlp_ratios: list = [4, 4, 4, 4],
-        num_heads: list = [1, 2, 5, 8],
-        depths: list = [2, 2, 2, 2],
-        decoder_head_embedding_dim: int = 256,
-        num_classes: int = 3,
-        decoder_dropout: float = 0.0,
+            self,
+            in_channels: int = 1,
+            sr_ratios: list = [4, 2, 1, 1],
+            embed_dims: list = [32, 64, 160, 256],
+            patch_kernel_size: list = [7, 3, 3, 3],
+            patch_stride: list = [4, 2, 2, 2],
+            patch_padding: list = [3, 1, 1, 1],
+            mlp_ratios: list = [4, 4, 4, 4],
+            num_heads: list = [1, 2, 5, 8],
+            depths: list = [2, 2, 2, 2],
+            decoder_head_embedding_dim: int = 256,
+            num_classes: int = 3,
+            decoder_dropout: float = 0.0,
     ):
         """
         in_channels: number of the input channels
@@ -106,7 +104,6 @@ class SegFormer3D(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-
     def forward(self, x):
         # embedding the input
         x = self.segformer_encoder(x)
@@ -118,16 +115,17 @@ class SegFormer3D(nn.Module):
         # decoding the embedded features
         x = self.segformer_decoder(c1, c2, c3, c4)
         return x
-    
+
+
 # ----------------------------------------------------- encoder -----------------------------------------------------
 class PatchEmbedding(nn.Module):
     def __init__(
-        self,
-        in_channel: int = 4,
-        embed_dim: int = 768,
-        kernel_size: int = 7,
-        stride: int = 4,
-        padding: int = 3,
+            self,
+            in_channel: int = 4,
+            embed_dim: int = 768,
+            kernel_size: int = 7,
+            stride: int = 4,
+            padding: int = 3,
     ):
         """
         in_channels: number of the channels in the input volume
@@ -153,13 +151,13 @@ class PatchEmbedding(nn.Module):
 
 class SelfAttention(nn.Module):
     def __init__(
-        self,
-        embed_dim: int = 768,
-        num_heads: int = 8,
-        sr_ratio: int = 2,
-        qkv_bias: bool = False,
-        attn_dropout: float = 0.0,
-        proj_dropout: float = 0.0,
+            self,
+            embed_dim: int = 768,
+            num_heads: int = 8,
+            sr_ratio: int = 2,
+            qkv_bias: bool = False,
+            attn_dropout: float = 0.0,
+            proj_dropout: float = 0.0,
     ):
         """
         embed_dim : hidden size of the PatchEmbedded input
@@ -170,9 +168,7 @@ class SelfAttention(nn.Module):
         proj_dropout: the dropout rate of the final linear projection
         """
         super().__init__()
-        assert (
-            embed_dim % num_heads == 0
-        ), "Embedding dim should be divisible by number of heads!"
+        assert (embed_dim % num_heads == 0), "Embedding dim should be divisible by number of heads!"
 
         self.num_heads = num_heads
         # embedding dimesion of each attention head
@@ -188,9 +184,7 @@ class SelfAttention(nn.Module):
 
         self.sr_ratio = sr_ratio
         if sr_ratio > 1:
-            self.sr = nn.Conv3d(
-                embed_dim, embed_dim, kernel_size=sr_ratio, stride=sr_ratio
-            )
+            self.sr = nn.Conv3d(embed_dim, embed_dim, kernel_size=sr_ratio, stride=sr_ratio)
             self.sr_norm = nn.LayerNorm(embed_dim)
 
     def forward(self, x):
@@ -242,14 +236,14 @@ class SelfAttention(nn.Module):
 
 class TransformerBlock(nn.Module):
     def __init__(
-        self,
-        embed_dim: int = 768,
-        mlp_ratio: int = 2,
-        num_heads: int = 8,
-        sr_ratio: int = 2,
-        qkv_bias: bool = False,
-        attn_dropout: float = 0.0,
-        proj_dropout: float = 0.0,
+            self,
+            embed_dim: int = 768,
+            mlp_ratio: int = 2,
+            num_heads: int = 8,
+            sr_ratio: int = 2,
+            qkv_bias: bool = False,
+            attn_dropout: float = 0.0,
+            proj_dropout: float = 0.0,
     ):
         """
         embed_dim : hidden size of the PatchEmbedded input
@@ -281,16 +275,16 @@ class TransformerBlock(nn.Module):
 
 class MixVisionTransformer(nn.Module):
     def __init__(
-        self,
-        in_channels: int = 4,
-        sr_ratios: list = [8, 4, 2, 1],
-        embed_dims: list = [64, 128, 320, 512],
-        patch_kernel_size: list = [7, 3, 3, 3],
-        patch_stride: list = [4, 2, 2, 2],
-        patch_padding: list = [3, 1, 1, 1],
-        mlp_ratios: list = [2, 2, 2, 2],
-        num_heads: list = [1, 2, 5, 8],
-        depths: list = [2, 2, 2, 2],
+            self,
+            in_channels: int = 4,
+            sr_ratios: list = [8, 4, 2, 1],
+            embed_dims: list = [64, 128, 320, 512],
+            patch_kernel_size: list = [7, 3, 3, 3],
+            patch_stride: list = [4, 2, 2, 2],
+            patch_padding: list = [3, 1, 1, 1],
+            mlp_ratios: list = [2, 2, 2, 2],
+            num_heads: list = [1, 2, 5, 8],
+            depths: list = [2, 2, 2, 2],
     ):
         """
         in_channels: number of the input channels
@@ -489,10 +483,11 @@ class DWConv(nn.Module):
         x = x.flatten(2).transpose(1, 2)
         return x
 
+
 ###################################################################################
 def cube_root(n):
     return round(math.pow(n, (1 / 3)))
-    
+
 
 ###################################################################################
 # ----------------------------------------------------- decoder -------------------
@@ -521,11 +516,11 @@ class SegFormerDecoderHead(nn.Module):
     """
 
     def __init__(
-        self,
-        input_feature_dims: list = [512, 320, 128, 64],
-        decoder_head_embedding_dim: int = 256,
-        num_classes: int = 3,
-        dropout: float = 0.0,
+            self,
+            input_feature_dims: list = [512, 320, 128, 64],
+            decoder_head_embedding_dim: int = 256,
+            num_classes: int = 3,
+            dropout: float = 0.0,
     ):
         """
         input_feature_dims: list of the output features channels generated by the transformer encoder
@@ -575,7 +570,7 @@ class SegFormerDecoderHead(nn.Module):
         )
 
     def forward(self, c1, c2, c3, c4):
-       ############## _MLP decoder on C1-C4 ###########
+        ############## _MLP decoder on C1-C4 ###########
         n, _, _, _, _ = c4.shape
 
         _c4 = (
@@ -631,18 +626,26 @@ class SegFormerDecoderHead(nn.Module):
         x = self.upsample_volume(x)
         return x
 
+
 ###################################################################################
 if __name__ == "__main__":
+    device = torch.device("cuda:0")
+    device = torch.device("cpu")
     input = torch.randint(
         low=0,
         high=255,
-        size=(1, 4, 128, 128, 128),
+        size=(8, 1, 96, 96, 96),
         dtype=torch.float,
     )
-    input = input.to("cuda:0")
-    segformer3D = SegFormer3D().to("cuda:0")
-    output = segformer3D(input)
+    input = input.to(device)
+    model = SegFormer3D().to(device)
+    start = time.time()
+    output = model(input)
     print(output.shape)
 
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print('The number of params in Million: ', params / 1e6)
+    print(time.time() - start, "s")
 
 ###################################################################################
