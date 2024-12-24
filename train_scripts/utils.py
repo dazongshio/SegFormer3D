@@ -4,6 +4,13 @@ import torch
 import wandb
 import cv2
 import os
+from termcolor import colored
+import sys
+import yaml
+from typing import Dict
+import torch.distributed as dist
+
+sys.path.append("../../../")
 
 """
 Utils File Used for Training/Validation/Testing
@@ -106,15 +113,15 @@ def initialize_weights(m):
 
 ##################################################################################################
 def save_and_print(
-    config,
-    model,
-    optimizer,
-    epoch,
-    train_loss,
-    val_loss,
-    accuracy,
-    best_val_acc,
-    save_acc: bool = True,
+        config,
+        model,
+        optimizer,
+        epoch,
+        train_loss,
+        val_loss,
+        accuracy,
+        best_val_acc,
+        save_acc: bool = True,
 ) -> None:
     """_summary_
 
@@ -165,3 +172,110 @@ def save_and_print(
         print(
             f"=> epoch -- {epoch} || train loss -- {train_loss:.4f} || val loss -- {val_loss:.4f}"
         )
+
+
+##################################################################################################
+def display_info(config, accelerator, trainset, valset, model):
+    # print experiment info
+    accelerator.print(f"-------------------------------------------------------")
+    accelerator.print(f"[info]: Experiment Info")
+    accelerator.print(
+        f"[info] ----- Project: {colored(config['project'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Group: {colored(config['wandb_parameters']['group'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Name: {colored(config['wandb_parameters']['name'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Batch Size: {colored(config['dataset_parameters']['train_dataloader_args']['batch_size'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Num Epochs: {colored(config['training_parameters']['num_epochs'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Loss: {colored(config['loss_fn']['loss_type'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Optimizer: {colored(config['optimizer']['optimizer_type'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Train Dataset Size: {colored(len(trainset), color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Test Dataset Size: {colored(len(valset), color='red')}"
+    )
+
+    pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    accelerator.print(
+        f"[info] ----- Distributed Training: {colored('True' if torch.cuda.device_count() > 1 else 'False', color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Num Clases: {colored(config['model_parameters']['num_classes'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- EMA: {colored(config['ema']['enabled'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Load From Checkpoint: {colored(config['training_parameters']['load_checkpoint']['load_full_checkpoint'], color='red')}"
+    )
+    accelerator.print(
+        f"[info] ----- Params: {colored(pytorch_total_params, color='red')}"
+    )
+    accelerator.print(f"-------------------------------------------------------")
+
+
+##################################################################################################
+
+def load_config(config_path: str) -> Dict:
+    """loads the yaml config file
+
+    Args:
+        config_path (str): _description_
+
+    Returns:
+        Dict: _description_
+    """
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+##################################################################################################
+# 设置随机数种子以保证程序在多次运行时得到一致的结果
+def seed_everything(config) -> None:
+    seed = config["training_parameters"]["seed"]
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+##################################################################################################
+# 创建训练过程所需的检查点目录
+
+# Todo 修改一下checkpoint
+def build_directories(config: Dict) -> str:
+    from datetime import datetime
+    import os
+
+    checkpoint_base_dir = config["training_parameters"]["checkpoint_save_dir"]
+    checkpoint_dirs = os.path.join(checkpoint_base_dir, datetime.strftime(datetime.now(), '%Y%m%d-%H%M%S'))
+
+    # 创建必要目录
+    if not os.path.exists(checkpoint_dirs):
+        os.makedirs(checkpoint_dirs, exist_ok=True)
+    elif os.listdir(checkpoint_dirs):  # 如果目录存在且非空
+        raise ValueError(f"Checkpoint directory '{checkpoint_dirs}' already exists and is not empty.")
+
+    return checkpoint_dirs
+
+
+def cleanup():
+    if dist.is_initialized():
+        dist.destroy_process_group()

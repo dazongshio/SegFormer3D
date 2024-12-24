@@ -14,16 +14,16 @@ import kornia
 #################################################################################################
 class Segmentation_Trainer:
     def __init__(
-        self,
-        config: Dict,
-        model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        criterion: torch.nn.Module,
-        train_dataloader: DataLoader,
-        val_dataloader: DataLoader,
-        warmup_scheduler: torch.optim.lr_scheduler.LRScheduler,
-        training_scheduler: torch.optim.lr_scheduler.LRScheduler,
-        accelerator=None,
+            self,
+            config: Dict,
+            model: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            criterion: torch.nn.Module,
+            train_dataloader: DataLoader,
+            val_dataloader: DataLoader,
+            warmup_scheduler: torch.optim.lr_scheduler.LRScheduler,
+            training_scheduler: torch.optim.lr_scheduler.LRScheduler,
+            accelerator=None,
     ) -> None:
         """classification trainer class init function
 
@@ -63,6 +63,7 @@ class Segmentation_Trainer:
         self.best_val_loss = 100.0  # best validation loss
         self.epoch_val_dice = 0.0  # epoch validation accuracy
         self.best_val_dice = 0.0  # best validation accuracy
+        self.ema_val_acc = 0.0  # best ema validation accuracy
 
         # external metric functions we can add
         self.sliding_window_inference = SlidingWindowInference(
@@ -93,12 +94,21 @@ class Segmentation_Trainer:
         self.warmup_epochs = self.config["warmup_scheduler"]["warmup_epochs"]
         self.cutoff_epoch = self.config["training_parameters"]["cutoff_epoch"]
         self.calculate_metrics = self.config["training_parameters"]["calculate_metrics"]
-        self.checkpoint_save_dir = self.config["training_parameters"][
-            "checkpoint_save_dir"
-        ]
+        self.checkpoint_save_dir = self.config["training_parameters"]["checkpoint_save_dir"]
+    # Todo 验证函数正确性
+    def _load_checkpoint(self, checkpoint_path: str) -> None:
+        """Loads model and optimizer states from a checkpoint."""
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
 
-    def _load_checkpoint(self):
-        raise NotImplementedError
+        self.accelerator.print(f"[info] -- Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=self.accelerator.device)
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if "scheduler_state_dict" in checkpoint:
+            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        self.current_epoch = checkpoint.get("epoch", 0)
+        self.best_val_dice = checkpoint.get("best_val_dice", 0.0)
 
     def _create_ema_model(self) -> torch.nn.Module:
         self.accelerator.print(f"[info] -- creating ema model")
@@ -125,11 +135,7 @@ class Segmentation_Trainer:
             # TODO: test gradient accumulation
             with self.accelerator.accumulate(self.model):
                 # get data ex: (data, target)
-                data, labels = (
-                    raw_data["image"],
-                    raw_data["label"],
-                )
-                # print("data ", data.shape, "label ", labels.shape)
+                data, labels = (raw_data["image"],raw_data["label"],)
 
                 # zero out existing gradients
                 self.optimizer.zero_grad()
@@ -334,6 +340,10 @@ class Segmentation_Trainer:
     def _save_and_print(self) -> None:
         """_summary_"""
         # print only on the first gpu
+        # print(self.checkpoint_save_dir)
+        if self.checkpoint_save_dir is None:
+            # self.checkpoint_save_dir =
+            raise ValueError("self.checkpoint_save_dir is None. Please provide a valid path.")
         if self.epoch_val_dice >= self.best_val_dice:
             # change path name based on cutoff epoch
             if self.current_epoch <= self.cutoff_epoch:
@@ -343,7 +353,9 @@ class Segmentation_Trainer:
                     self.checkpoint_save_dir,
                     "best_dice_model_post_cutoff",
                 )
-
+            if save_path is None:
+                raise ValueError("save_path is None. Please provide a valid path.")
+            # print(f"Saving checkpoint to: {save_path}")
             # save checkpoint and log
             self._save_checkpoint(save_path)
 
@@ -440,25 +452,64 @@ class Segmentation_Trainer:
         Runs a full training and validation of the dataset.
         """
         self._run_train_val()
-        self.accelerator.end_traninig()
+        self.accelerator.end_training()
+    # Todo 验证函数正确性
+    def evaluate(self, dataloader=None, use_ema: bool = False) -> Dict[str, float]:
+        """Evaluates the model on a given dataloader."""
+        dataloader = dataloader or self.val_dataloader
 
-    def evaluate(self) -> None:
-        raise NotImplementedError("evaluate function is not implemented yet")
+        # Initialize loss and metric accumulators
+        total_loss = 0.0
+        total_dice = 0.0
+
+        self.model.eval()
+        if use_ema and self.ema_model:
+            self.ema_model.eval()
+
+        with torch.no_grad():
+            for raw_data in tqdm(dataloader):
+                data, labels = raw_data["image"], raw_data["label"]
+
+                # Forward pass
+                if use_ema and self.ema_model:
+                    predicted = self.ema_model(data)
+                else:
+                    predicted = self.model(data)
+
+                # Compute loss
+                loss = self.criterion(predicted, labels)
+                total_loss += loss.item()
+
+                # Compute metrics
+                if self.calculate_metrics:
+                    mean_dice = self._calc_dice_metric(data, labels, use_ema)
+                    total_dice += mean_dice
+
+        avg_loss = total_loss / len(dataloader)
+        avg_dice = total_dice / len(dataloader) if self.calculate_metrics else None
+
+        results = {
+            "average_loss": avg_loss,
+            "average_dice": avg_dice if avg_dice is not None else 0.0,
+        }
+
+        self.accelerator.print(f"Evaluation Results: {results}")
+        return results
 
 
 #################################################################################################
 class AutoEncoder_Trainer:
     def __init__(
-        self,
-        config: Dict,
-        model: torch.nn.Module,
-        optimizer: torch.optim.Optimizer,
-        criterion: torch.nn.Module,
-        train_dataloader: DataLoader,
-        val_dataloader: DataLoader,
-        warmup_scheduler: torch.optim.lr_scheduler.LRScheduler,
-        training_scheduler: torch.optim.lr_scheduler.LRScheduler,
-        accelerator=None,
+            self,
+            config: Dict,
+            model: torch.nn.Module,
+            optimizer: torch.optim.Optimizer,
+            criterion: torch.nn.Module,
+            train_dataloader: DataLoader,
+            val_dataloader: DataLoader,
+            warmup_scheduler: torch.optim.lr_scheduler.LRScheduler,
+            training_scheduler: torch.optim.lr_scheduler.LRScheduler,
+            accelerator=None,
     ) -> None:
         """classification trainer class init function
 
