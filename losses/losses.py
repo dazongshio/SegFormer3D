@@ -4,6 +4,9 @@ import torch.nn as nn
 from typing import Dict
 from monai import losses
 
+from losses.dice import SoftDiceLoss
+from losses.utils import softmax_helper_dim1
+
 
 class CrossEntropyLoss(nn.Module):
     def __init__(self):
@@ -31,9 +34,12 @@ class DiceLoss(nn.Module):
     def __init__(self):
         super().__init__()
         self._loss = losses.DiceLoss(to_onehot_y=False, sigmoid=True)
+        self.SoftDiceLoss = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, batch_dice=True, do_bg=False, smooth=0,
+                                         ddp=False)
 
     def forward(self, predicted, target):
         loss = self._loss(predicted, target)
+        loss = (self.SoftDiceLoss(predicted, target) + 3 * loss) / 4
         return loss
 
 
@@ -47,6 +53,15 @@ class DiceCELoss(nn.Module):
         loss = self._loss(predicted, target)
         return loss
 
+###########################################################################
+class DiceRobustCELoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self._loss = losses.DiceCELoss(to_onehot_y=False, sigmoid=True)
+
+    def forward(self, predicted, target):
+        loss = self._loss(predicted, target)
+        return loss
 
 ###########################################################################
 def build_loss_fn(loss_type: str, loss_args: Dict = None):
@@ -61,6 +76,9 @@ def build_loss_fn(loss_type: str, loss_args: Dict = None):
 
     elif loss_type == "diceCE":
         return DiceCELoss()
+
+    elif loss_type == "diceRobustCE":
+        return DiceRobustCELoss()
 
     else:
         raise ValueError("must be cross entropy or soft dice loss for now!")

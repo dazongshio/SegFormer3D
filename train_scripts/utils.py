@@ -9,6 +9,7 @@ import sys
 import yaml
 from typing import Dict
 import torch.distributed as dist
+import ast
 
 sys.path.append("../../../")
 
@@ -176,6 +177,7 @@ def save_and_print(
 
 ##################################################################################################
 def display_info(config, accelerator, trainset, valset, model):
+    model_name = config['model']['name']
     # print experiment info
     accelerator.print(f"-------------------------------------------------------")
     accelerator.print(f"[info]: Experiment Info")
@@ -189,7 +191,7 @@ def display_info(config, accelerator, trainset, valset, model):
         f"[info] ----- Name: {colored(config['wandb_parameters']['name'], color='red')}"
     )
     accelerator.print(
-        f"[info] ----- Batch Size: {colored(config['dataset_parameters']['train_dataloader_args']['batch_size'], color='red')}"
+        f"[info] ----- Batch Size: {colored(config['dataset']['train_dataloader_args']['batch_size'], color='red')}"
     )
     accelerator.print(
         f"[info] ----- Num Epochs: {colored(config['training_parameters']['num_epochs'], color='red')}"
@@ -212,7 +214,7 @@ def display_info(config, accelerator, trainset, valset, model):
         f"[info] ----- Distributed Training: {colored('True' if torch.cuda.device_count() > 1 else 'False', color='red')}"
     )
     accelerator.print(
-        f"[info] ----- Num Clases: {colored(config['model_parameters']['num_classes'], color='red')}"
+        f"[info] ----- Num Clases: {colored(config['model'][model_name]['num_classes'], color='red')}"
     )
     accelerator.print(
         f"[info] ----- EMA: {colored(config['ema']['enabled'], color='red')}"
@@ -279,3 +281,25 @@ def build_directories(config: Dict) -> str:
 def cleanup():
     if dist.is_initialized():
         dist.destroy_process_group()
+
+def convert_to_tuple(value):
+    """
+    将字符串形式的元组转换为实际的元组类型。
+
+    参数:
+        value (str or tuple): 输入的值，可以是字符串形式的元组，或已经是元组的值。
+
+    返回:
+        tuple: 转换后的元组。
+
+    异常:
+        ValueError: 如果转换失败或转换结果不是元组，会抛出错误。
+    """
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+            if not isinstance(value, tuple):
+                raise ValueError("Converted value is not a tuple.")
+        except Exception as e:
+            raise ValueError(f"Error converting value: {e}")
+    return value

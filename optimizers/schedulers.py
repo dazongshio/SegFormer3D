@@ -14,7 +14,7 @@ def warmup_lr_scheduler(config, optimizer):
         warmup_lr (_type_): warmup lr should be the starting lr we want.
     """
     lambda1 = lambda epoch: (
-        (epoch + 1) * 1.0 / config["warmup_scheduler"]["warmup_epochs"]
+            (epoch + 1) * 1.0 / config["warmup_scheduler"]["warmup_epochs"]
     )
     scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1, verbose=False)
     return scheduler
@@ -60,7 +60,7 @@ def training_lr_scheduler(config, optimizer):
 
 ##################################################################################################
 def build_scheduler(
-    optimizer: optim.Optimizer, scheduler_type: str, config
+        optimizer: optim.Optimizer, scheduler_type: str, config
 ) -> LRScheduler:
     """generates the learning rate scheduler
 
