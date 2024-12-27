@@ -276,7 +276,15 @@ def build_directories(config: Dict) -> str:
         raise ValueError(f"Checkpoint directory '{checkpoint_dirs}' already exists and is not empty.")
 
     return checkpoint_dirs
-
+#
+#
+# def build_directories(config: Dict) -> None:
+#     # create necessary directories
+#     if not os.path.exists(config["training_parameters"]["checkpoint_save_dir"]):
+#         os.makedirs(config["training_parameters"]["checkpoint_save_dir"])
+#
+#     if os.listdir(config["training_parameters"]["checkpoint_save_dir"]):
+#         raise ValueError("checkpoint exits -- preventing file override -- rename file")
 
 def cleanup():
     if dist.is_initialized():

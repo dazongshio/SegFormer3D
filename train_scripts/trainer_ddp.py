@@ -340,7 +340,7 @@ class Segmentation_Trainer:
     def _save_and_print(self) -> None:
         """_summary_"""
         # print only on the first gpu
-        # print(self.checkpoint_save_dir)
+        print(self.checkpoint_save_dir)
         if self.checkpoint_save_dir is None:
             # self.checkpoint_save_dir =
             raise ValueError("self.checkpoint_save_dir is None. Please provide a valid path.")

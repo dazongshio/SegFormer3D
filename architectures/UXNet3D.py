@@ -16,7 +16,7 @@ from typing import Union
 import torch.nn.functional as F
 from lib.utils.tools.logger import Logger as Log
 from lib.models.tools.module_helper import ModuleHelper
-from architectures.utils.deformuxnet_utils.deform_Util import deformuxnet_conv
+from architectures.utils.UXNet3D_Util import uxnet_conv
 
 
 class ProjectionHead(nn.Module):
@@ -89,7 +89,7 @@ class ProjectionHead(nn.Module):
 #         return out
 
 
-class DEFORMUXNET(nn.Module):
+class UXNet3D(nn.Module):
 
     def __init__(
             self,
@@ -162,7 +162,7 @@ class DEFORMUXNET(nn.Module):
         #     dropout_rate=dropout_rate,
         #     spatial_dims=spatial_dims,
         # )
-        self.deformuxnet_3d = deformuxnet_conv(
+        self.uxnet_3d = uxnet_conv(
             in_chans=self.in_chans,
             depths=self.depths,
             dims=self.feat_size,
@@ -273,7 +273,7 @@ class DEFORMUXNET(nn.Module):
         return x
 
     def forward(self, x_in):
-        outs = self.deformuxnet_3d(x_in)
+        outs = self.uxnet_3d(x_in)
         # print(outs[0].size())
         # print(outs[1].size())
         # print(outs[2].size())

@@ -1,0 +1,344 @@
+# wandb parameters
+project: Seg3D
+wandb_parameters:
+  mode: "online" # set this to "online" if you want to log to wandb   # "offline": 数据会记录在本地，并且可以在之后手动上传到 W&B 云。
+  entity: dazongshi # W&B 团队或用户的名称
+  group: FeTA2021 # 实验分组名称
+  name: UXNet3D_dice_adamw_1_2 # 当前实验设置的唯一名称: 网络_损失函数_优化器_batch_显卡
+  resume: False # 是否从之前的实验状态恢复。
+  tags: [ "dice", "b0_model", "adamw" ,"3DUXNET_dice"]
+  notes: "" # 为实验添加简短的说明或备注
+#  id: 1 # 设置运行的唯一标识符，便于恢复或重复实验
+#  save_code: False # 是否自动保存当前运行的代码到 W&B
+#  monitor_gym: True # 是否记录 Gym 的环境和指标
+#  log_model: False # "end": 在运行结束时保存模型 "all": 在运行过程中实时保存模型。False: 不保存模型。
+#  config:   #保存实验配置（如超参数）
+
+
+
+# model parameters
+model:
+  all_model: [ "segformer3d","nnFormer","3DUnet","TransBTS","UNETR","SwinUNETR","UXNet3D","RepUXNET","nn-UNet","DeformUXNET","segNow" ]
+  name: UXNet3D
+
+  segformer3d:
+    in_channels: 1
+    sr_ratios: [ 4, 2, 1, 1 ]
+    embed_dims: [ 32, 64, 160, 256 ]
+    patch_kernel_size: [ 7, 3, 3, 3 ]
+    patch_stride: [ 4, 2, 2, 2 ]
+    patch_padding: [ 3, 1, 1, 1 ]
+    mlp_ratios: [ 4, 4, 4, 4 ]
+    num_heads: [ 1, 2, 5, 8 ]
+    depths: [ 2, 2, 2, 2 ]
+    num_classes: 8
+    decoder_dropout: 0.0
+    decoder_head_embedding_dim: 256
+
+  nnFormer:
+    in_channels: 1
+    patch_dim: [ 96,96,96 ]
+    embedding: 192
+    patch_kernel_size: [ 2,4,4 ]
+    window_size: [ 4,4,8,4 ]
+    num_heads: [ 6, 12, 24, 48 ]
+    depths: [ 2, 2, 2, 2 ]
+    num_classes: 8
+    conv_op: "nn.Conv3d"
+    deep_supervision: False
+
+  3DUnet:
+    in_channels: 1
+    sr_ratios: [ 4, 2, 1, 1 ]
+    embed_dims: [ 48, 96, 192, 384 ]
+    patch_kernel_size: [ 7, 3, 3, 3 ]
+    patch_stride: [ 4, 2, 2, 2 ]
+    patch_padding: [ 3, 1, 1, 1 ]
+    mlp_ratios: [ 4, 4, 4, 4 ]
+    num_heads: [ 32, 64, 128, 256 ]
+    depths: [ 2, 2, 2, 2 ]
+    feat_size: [ 48, 96, 192, 384 ]
+    in_chans: 1
+    out_chans: 8
+    drop_path_rate: 0
+    layer_scale_init_value: 1e-6
+    spatial_dims: 3
+    num_classes: 8
+    decoder_dropout: 0.0
+    decoder_head_embedding_dim: 768
+    conv_block: True
+    res_block: True
+
+  TransBTS:
+    in_channels: 1
+    img_size: 96
+    patch_dim: 8
+    num_classes: 8
+    hidden_dim: 4096
+    embedding: 512
+    num_heads: 8
+    num_layers: 4
+    dropout_rate: 0.1
+    attn_dropout_rate: 0.1
+    conv_patch_representation: True
+    positional_encoding_type: "learned"
+
+
+  UNETR:
+    in_channels: 4
+    num_heads: 12
+    num_classes: 8
+    spatial_dims: 3
+    img_size: [ 96,96,96 ]
+    hidden_size: 768
+    mlp_dim: 3072
+    feature_size: 16
+    dropout_rate: 0.1
+    conv_block: True
+    res_block: True
+    norm_name: "instance"
+    save_attn: False
+    qkv_bias: False
+    pos_embed: "perceptron" # conv perceptron
+
+  SwinUNETR:
+    in_channels: 1
+    num_heads: [ 3, 6, 12, 24 ]
+    depths: [ 2, 2, 2, 2 ]
+    num_classes: 8
+    spatial_dims: 3
+    decoder_dropout: 0.0
+    img_size: [ 96,96,96 ]
+    feature_size: 48
+    drop_rate: 0.1
+    attn_drop_rate: 0.1
+    dropout_path_rate: 0.0
+    use_v2: False
+    normalize: True
+    norm_name: "instance"
+    use_checkpoint: False
+    downsample: "merging" # {'merging', 'mergingv2'}
+
+  UXNet3D:
+    in_channels: 1
+    depths: [ 2, 2, 2, 2 ]
+    feat_size: [ 48, 96, 192, 384 ]
+    layer_scale_init_value: 1e-6
+    spatial_dims: 3
+    num_classes: 8
+    conv_block: True
+    res_block: True
+    drop_path_rate: 0
+    hidden_size: 768
+    norm_name: "instance"
+
+  RepUXNET:
+    in_channels: 1
+    depths: [ 2, 2, 2, 2 ]
+    feat_size: [ 48, 96, 192, 384 ]
+    layer_scale_init_value: 1e-6
+    spatial_dims: 3
+    num_classes: 8
+    decoder_dropout: 0.0
+    decoder_head_embedding_dim: 768
+    conv_block: True
+    res_block: True
+    norm_name: "instance"
+    ks: 21
+    a: 1
+    deploy: False
+
+  nn-UNet:
+
+  DeformUXNET:
+    in_channels: 1
+    depths: [ 2, 2, 2, 2 ]
+    feat_size: [ 48, 96, 192, 384 ]
+    layer_scale_init_value: 1e-6
+    spatial_dims: 3
+    num_classes: 8
+    decoder_dropout: 0.0
+    decoder_head_embedding_dim: 768
+    conv_block: True
+    res_block: True
+
+  segNow:
+    in_channels: 1
+    sr_ratios: [ 4, 2, 1, 1 ]
+    embed_dims: [ 32, 64, 160, 256 ]
+    patch_kernel_size: [ 7, 3, 3, 3 ]
+    patch_stride: [ 4, 2, 2, 2 ]
+    patch_padding: [ 3, 1, 1, 1 ]
+    mlp_ratios: [ 4, 4, 4, 4 ]
+    num_heads: [ 1, 2, 5, 8 ]
+    depths: [ 2, 2, 2, 2 ]
+    num_classes: 8
+    decoder_dropout: 0.0
+    decoder_head_embedding_dim: 256
+
+
+# loss function
+loss_fn:
+  losses: [ 'CrossEntropy', 'binaryCrossEntropy', 'dice', 'diceCE', 'diceRobustCE' ]
+  loss_type: "dice"
+  loss_args: None
+
+# optimizer
+optimizer:
+  optimizer_type: "adamw"
+  optimizer_args:
+    lr: 0.0001
+    weight_decay: 0.01
+
+# schedulers
+warmup_scheduler:
+  enabled: True # should be always true
+  warmup_epochs: 20
+
+train_scheduler:
+  scheduler_type: 'cosine_annealing_wr'
+  scheduler_args:
+    t_0_epochs: 400
+    t_mult: 1
+    min_lr: 0.000006
+
+# (Not fully implemented yet) eponential moving average
+ema:
+  enabled: False
+  ema_decay: 0.999
+  val_ema_every: 1
+
+sliding_window_inference:
+  sw_batch_size: 4
+#  roi: [ 96, 96, 96 ]
+  roi: [ 128, 128, 128 ]
+
+# gradient clipping (not implemented yet)
+clip_gradients:
+  enabled: False
+  clip_gradients_value: 0.1
+
+# training hyperparameters
+training_parameters:
+  seed: 42
+  num_epochs: 800
+  cutoff_epoch: 400
+  load_optimizer: False
+  print_every: 200
+  calculate_metrics: True
+  grad_accumulate_steps: 1 # default: 1
+  checkpoint_save_dir: "model_checkpoints"
+  load_checkpoint: # not implemented yet
+    load_full_checkpoint: False
+    load_model_only: False
+    load_checkpoint_path: None
+
+# dataset args
+
+
+dataset:
+  name: "FeTA2021" # {'FeTA2021', 'FLARE2022', 'AMOS2022', 'brats2021', 'brats2017'}
+  FeTA2021:
+    train:
+      root: "../../../data/FeTA"
+      mode: 'train'
+      fold_id: null
+
+    val:
+      root: "../../../data/FeTA"
+      mode: 'val'
+      fold_id: null
+    augmentations:
+      crop_sample: 4
+      keys: [ "image", "label" ]
+      pixdim: (1.0, 1.0, 1.0)
+      spatial_size: (96, 96, 96)
+      a_min: 0
+      a_max: 1000
+
+  AMOS2022:
+    train_dataset_args:
+      root: "../../../data/AMOS"
+      mode: 'train'
+      fold_id: null
+
+    val_dataset_args:
+      root: "../../../data/AMOS2022"
+      mode: 'val'
+      fold_id: null
+    augmentations:
+      crop_sample: 4
+      keys: [ "image", "label" ]
+      pixdim: (1.5, 1.5, 2.0)
+      spatial_size: (96, 96, 96)
+      a_min: -125
+      a_max: 275
+
+  Brats2021:
+    train_dataset_args:
+      root: "../../../data/Brats2021"
+      mode: 'train'
+      fold_id: null
+
+    val_dataset_args:
+      root: "../../../data/Brats2021"
+      mode: 'val'
+      fold_id: null
+        # fold_id
+        # in case you have k-fold train and validation csv
+        # for example fold_id: 1 will load train_fold_1.csv
+        # default fold_id is null which load train.csv
+      # browse to ../../../data/Brats2017/brats2017_raw_data/datameta_generator to access to the csv files
+      # and put it under ../../../data/Brats2017 and change the fold_id accrodingly
+    augmentations:
+      crop_sample: 4
+      keys: [ "image", "label" ]
+      pixdim: (1.0, 1.0, 1.0)
+      spatial_size: (96, 96, 96)
+      a_min: 0
+      a_max: 1000
+
+  FLARE2022:
+    train_dataset_args:
+      root: "../../../data/FLARE2022"
+      mode: 'train'
+      fold_id: null
+
+    val_dataset_args:
+      root: "../../../data/FLARE2022"
+      mode: 'val'
+      fold_id: null
+        # fold_id
+        # in case you have k-fold train and validation csv
+        # for example fold_id: 1 will load train_fold_1.csv
+        # default fold_id is null which load train.csv
+      # browse to ../../../data/Brats2017/brats2017_raw_data/datameta_generator to access to the csv files
+      # and put it under ../../../data/Brats2017 and change the fold_id accrodingly
+    augmentations:
+      crop_sample: 4
+      keys: [ "image", "label" ]
+      pixdim: (1.0, 1.0, 1.2)
+      spatial_size: (96, 96, 96)
+      a_min: -125
+      a_max: 275
+
+  train_dataloader_args:
+    batch_size: 1
+    shuffle: True
+    num_workers: 1
+    drop_last: True
+
+  val_dataloader_args:
+    batch_size: 1
+    shuffle: False
+    num_workers: 1
+    drop_last: False
+
+#  augmentations:
+#    dataset: 'FeTA' # {'FeTA', 'FLARE', 'AMOS2022', 'brats'}
+#    crop_sample: 4
+#    keys: [ "image", "label" ]
+#    pixdim: (1.0, 1.0, 1.0)
+#    spatial_size: (96, 96, 96)
+#    a_min: 0
+#    a_max: 1000

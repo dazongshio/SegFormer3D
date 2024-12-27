@@ -34,12 +34,9 @@ class DiceLoss(nn.Module):
     def __init__(self):
         super().__init__()
         self._loss = losses.DiceLoss(to_onehot_y=False, sigmoid=True)
-        self.SoftDiceLoss = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, batch_dice=True, do_bg=False, smooth=0,
-                                         ddp=False)
 
     def forward(self, predicted, target):
         loss = self._loss(predicted, target)
-        loss = (self.SoftDiceLoss(predicted, target) + 3 * loss) / 4
         return loss
 
 
@@ -57,18 +54,21 @@ class DiceCELoss(nn.Module):
 class DiceRobustCELoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self._loss = losses.DiceCELoss(to_onehot_y=False, sigmoid=True)
+        self._loss = losses.DiceLoss(to_onehot_y=False, sigmoid=True)
+        self.SoftDiceLoss = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, batch_dice=True, do_bg=False, smooth=0,
+                                         ddp=False)
 
     def forward(self, predicted, target):
         loss = self._loss(predicted, target)
+        loss = (self.SoftDiceLoss(predicted, target) + 3 * loss) / 4
         return loss
 
 ###########################################################################
 def build_loss_fn(loss_type: str, loss_args: Dict = None):
-    if loss_type == "crossentropy":
+    if loss_type == "CrossEntropy":
         return CrossEntropyLoss()
 
-    elif loss_type == "binarycrossentropy":
+    elif loss_type == "binaryCrossEntropy":
         return BinaryCrossEntropyWithLogits()
 
     elif loss_type == "dice":

@@ -1,0 +1,22 @@
+compute_environment: 'LOCAL_MACHINE'        # 指定计算环境，这里表示运行在本地机器上
+distributed_type: 'NO'                      # 分布式训练类型，这里设置为不使用分布式（单机单卡）
+#distributed_type: 'MULTI_GPU'              # （备用）分布式类型为多 GPU，取消注释可以启用
+downcast_bf16: 'yes'                        # 是否降级使用 bf16 数据类型
+gpu_ids: '3'                                # 指定使用的 GPU ID，这里选择第 3 张 GPU
+machine_rank: 0                             # 当前机器的排名（在多机环境中使用），从 0 开始
+main_training_function: 'main'              # 入口训练函数的名称
+mixed_precision: 'no'                       # 是否启用混合精度训练，"no" 表示不启用
+dynamo_backend: 'no'                        # 是否使用动态编译后端，"no" 表示不使用
+num_machines: 2                             # 使用的机器数量，1 表示单机
+num_processes: 2                            # 每台机器上使用的进程数
+rdzv_backend: 'static'                      # 分布式的 rendezvous 后端，指定为 "static"
+same_network: True                          # 是否在同一网络下，True 表示所有机器在同一网络中
+tpu_env: [ ]                                # TPU 环境变量列表，留空表示未使用 TPU
+tpu_use_cluster: False                      # 是否启用 TPU 集群，False 表示未启用
+tpu_use_sudo: False                         # 是否需要 sudo 权限以访问 TPU，False 表示不需要
+use_cpu: False                              # 是否使用 CPU，False 表示使用 GPU
+debug: False                                # 是否启用调试模式，False 表示不启用调试
+main_process_ip: 127.0.0.1                  # 主进程的 IP 地址，用于分布式通信
+main_process_port: 62373                    # 主进程的通信端口
+
+# accelerate               0.23.0           # 指定 accelerate 库的版本（作为注释，未生效）
